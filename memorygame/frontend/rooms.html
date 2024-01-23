@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel="stylesheet" href="css/styleRooms.css">
+</head>
+
+<body>
+    <div class="room-panel">
+        <div id="room-list">
+            <!-- Lista pokoi wyświetli się tutaj -->
+        </div>
+        <div class="wrapper">
+            <form id="create-room-form">
+                <label for="room-name">Nazwa pokoju:</label>
+                <input type="text" id="room-name" name="roomName" required>
+
+                <div>
+                    <input type="checkbox" id="password-checkbox" name="hasPassword">
+                    <label for="password-checkbox">Czy pokój ma hasło?</label>
+                </div>
+
+                <div id="password-container">
+                    <label for="room-password">Hasło:</label>
+                    <input type="password" id="room-password" name="roomPassword">
+                </div>
+
+                <button type="button" id="Create" onclick="createRoom()">Stwórz</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="js/scriptRoom.js"></script>
+</body>
+
+</html>
