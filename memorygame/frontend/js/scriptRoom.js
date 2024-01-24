@@ -75,6 +75,10 @@ function createRoom() {
 		alert("Podaj nazwę pokoju");
 		return;
 	}
+	if (roomPassword.trim() === "") {
+		alert("Podaj hasło pokoju");
+		return;
+	}
 	socket.emit("createRoom", { roomName, roomPassword, login });
 	console.log(
 		"Tworzenie pokoju:",
@@ -99,6 +103,13 @@ socket.on("connectRoomRes", data => {
 		window.location.href = `/game.html?room=${data.room}?login=${login}`;
 	} else {
 		console.log("Błąd logowania");
-		alert(`Złe hasło do pokoju "${data.room}"`);
+		alert(`Złe hasło do pokoju "${data.room} lub liczba graczy wynosi juz 2"`);
+	}
+});
+socket.on("playerJoinedRoom", data => {
+	// Znajdź i usuń pokój z listy
+	const roomListItem = document.getElementById(data.room);
+	if (roomListItem) {
+		roomListItem.remove();
 	}
 });

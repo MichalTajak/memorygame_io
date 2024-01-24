@@ -150,7 +150,9 @@ io.on("connection", async socket => {
 	//ROOMS
 	socket.on("getUniqueRoomNames", async () => {
 		try {
-			const uniqueRoomNames = await db.any("SELECT DISTINCT name FROM rooms");
+			const uniqueRoomNames = await db.any(
+				"SELECT DISTINCT name FROM rooms WHERE count != 2"
+			);
 			// Wysyłaj unikalne nazwy pokoi do klienta
 			socket.emit("uniqueRoomNames", {
 				success: true,
@@ -171,19 +173,34 @@ io.on("connection", async socket => {
 			"SELECT * FROM rooms WHERE name = $1 AND password = $2",
 			[data.name, data.password]
 		);
+		const count = await db.oneOrNone(
+			"SELECT count FROM rooms WHERE name = $1 AND password = $2",
+			[data.name, data.password]
+		);
 		console.log(data.name);
 		console.log(data.password);
 		console.log(checkConnect);
 		if (!checkConnect) {
-			await db.none(
-				"INSERT INTO rooms (name, password, player) VALUES ($1, $2, $3)",
-				[data.name, data.password, data.login]
-			);
+			socket.emit("connectRoomRes", {
+				success: false,
+				room: data.name,
+			});
+		} else if (count == 2) {
 			socket.emit("connectRoomRes", {
 				success: false,
 				room: data.name,
 			});
 		} else {
+			db.none(
+				"UPDATE rooms SET player = COALESCE(player || ',', '') || $1, count = count + 1 WHERE name = $2",
+				[data.login, data.name]
+			)
+				.then(() => {
+					console.log("Aktualizacja pokoju zakończona sukcesem.");
+				})
+				.catch(error => {
+					console.error("Błąd podczas aktualizacji pokoju:", error);
+				});
 			socket.emit("connectRoomRes", {
 				success: true,
 				room: data.name,
