@@ -10,7 +10,7 @@ const session = require("express-session");
 const server = http.createServer(app);
 const io = socketIo(server);
 const LocalStrategy = require("passport-local").Strategy;
-const bcrypt = require("bcrypt");
+const loggedUsers = {};
 
 app.use(bodyParser.json());
 app.use(
@@ -29,8 +29,6 @@ const db = pgp({
 	password: "Baza1234",
 	port: 5432,
 });
-
-const usersConnected = {};
 
 //LOGOWANIE I REJESTRACJA
 
@@ -98,6 +96,12 @@ app.post("/login", async (req, res, next) => {
 			console.error("Błąd podczas uwierzytelniania:", error);
 			return res.redirect("/login.html");
 		}
+		if (loggedUsers[username] == 1) {
+			console.error("Uzytkownik juz zalogowany");
+			return res.redirect("/");
+		} else if (loggedUsers[username] == 0) {
+			loggedUsers[username]++;
+		}
 
 		// Jeśli użytkownik i hasło są poprawne, zaloguj go ręcznie
 		req.logIn(user, err => {
@@ -107,6 +111,10 @@ app.post("/login", async (req, res, next) => {
 			}
 			console.log("Ręczne uwierzytelnianie zakończone pomyślnie");
 			const redirectUrl = `/rooms.html?login=${encodeURIComponent(username)}`;
+			if (loggedUsers[username] == null) {
+				loggedUsers[username] = 0;
+			}
+			console.log(loggedUsers);
 			ensureAuthenticated(req, res, () => {
 				res.redirect(redirectUrl);
 			});
@@ -119,41 +127,6 @@ app.post("/login", async (req, res, next) => {
 
 io.on("connection", async socket => {
 	console.log("Nowe połączenie socket.io:", socket.id);
-
-	// Obsługa wiadomości od klienta
-	socket.on("messageFromClient", async message => {
-		console.log("Wiadomość od klienta:", message);
-
-		try {
-			const { username, password } = message;
-
-			// Pobranie hasła użytkownika z bazy danych
-			const user = await db.oneOrNone(
-				"SELECT id FROM users WHERE login = $1 AND password = $2;",
-				[username, password]
-			);
-
-			if (user) {
-				// Hasło jest poprawne
-				console.log("Poprawne dane logowania. Wykonaj odpowiednie działania.");
-
-				socket.emit("loginSuccess", { success: true });
-			} else {
-				// Niepoprawne dane logowania
-				console.log("Błędne dane logowania.");
-				socket.emit("loginFailure", { success: false });
-			}
-		} catch (error) {
-			console.error(
-				"Błąd podczas sprawdzania loginu i hasła w bazie danych:",
-				error
-			);
-			socket.emit("loginFailure", {
-				success: false,
-				error: "Internal Server Error",
-			});
-		}
-	});
 
 	socket.on("createUser", data => {
 		const { username, password } = data;
@@ -175,17 +148,59 @@ io.on("connection", async socket => {
 	});
 
 	//ROOMS
+	socket.on("getUniqueRoomNames", async () => {
+		try {
+			const uniqueRoomNames = await db.any("SELECT DISTINCT name FROM rooms");
+			// Wysyłaj unikalne nazwy pokoi do klienta
+			socket.emit("uniqueRoomNames", {
+				success: true,
+				data: uniqueRoomNames.map(room => room.name),
+			});
+		} catch (error) {
+			console.error("Błąd podczas pobierania unikalnych nazw pokoi:", error);
+			// Wysyłaj informację o błędzie do klienta
+			socket.emit("uniqueRoomNames", {
+				success: false,
+				error: "Internal Server Error",
+			});
+		}
+	});
+
+	socket.on("connectRoom", async data => {
+		const checkConnect = await db.oneOrNone(
+			"SELECT * FROM rooms WHERE name = $1 AND password = $2",
+			[data.name, data.password]
+		);
+		console.log(data.name);
+		console.log(data.password);
+		console.log(checkConnect);
+		if (!checkConnect) {
+			await db.none(
+				"INSERT INTO rooms (name, password, player) VALUES ($1, $2, $3)",
+				[data.name, data.password, data.login]
+			);
+			socket.emit("connectRoomRes", {
+				success: false,
+				room: data.name,
+			});
+		} else {
+			socket.emit("connectRoomRes", {
+				success: true,
+				room: data.name,
+			});
+		}
+	});
 
 	socket.on("createRoom", async data => {
 		const { roomName, roomPassword, login } = data;
 		try {
 			// Tworzenie wpisu w bazie danych
-			const result = await db.none(
+			await db.none(
 				"INSERT INTO rooms (name, password, player) VALUES ($1, $2, $3)",
 				[roomName, roomPassword, login]
 			);
 
-			console.log("Pokój utworzony:", result);
+			console.log("Pokój utworzony:", roomName);
 
 			// Możesz emitować zdarzenie potwierdzające utworzenie pokoju
 			socket.emit("roomCreated", { success: true, room: roomName });

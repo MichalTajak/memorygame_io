@@ -7,7 +7,7 @@ async function attemptLogin() {
 	const password = document.getElementById("password").value;
 
 	// Przykład wysłania wiadomości do serwera za pomocą socket.io
-	socket.emit("messageFromClient", { username, password });
+	// socket.emit("messageFromClient", { username, password });
 
 	try {
 		const response = await fetch("/login", {
@@ -48,7 +48,6 @@ function createUser() {
 		alert("Powtórzone hasło nie jest takie samo");
 	}
 }
-
 
 //od servera
 //logowanie
