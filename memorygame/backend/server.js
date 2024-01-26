@@ -234,8 +234,62 @@ io.on("connection", async socket => {
 
 	//GAME
 	socket.on("createConnection", data => {
-		const { login } = data;
-		usersConnected[socket.id] = login;
+		socket.join(data.roomName);
+	});
+	//Start gry
+	socket.on("startGame", async data => {
+		console.log(data.roomName);
+		const count = await db.oneOrNone(
+			"SELECT count FROM rooms WHERE name = $1",
+			[data.roomName]
+		);
+		console.log(count);
+		if (count == 1) {
+			socket.emit("stopStart");
+		} else {
+			try {
+				// Pobierz informacje o graczy i nazwie pokoju z bazy danych
+				const room = await db.oneOrNone(
+					"SELECT name, STRING_TO_ARRAY(player, ',') AS players FROM rooms WHERE name = $1",
+					[data.roomName]
+				);
+				if (room) {
+					console.log("Start gry w pokoju:", room.name);
+					console.log("Gracze:", room.players);
+
+					// Wysyłaj informacje o graczach do klienta
+					io.to(room.name).emit("gameStarted", {
+						success: true,
+						players: room.players,
+						cardValues: data.cardValues,
+						move: data.move,
+					});
+				} else {
+					console.log("Pokój nie istnieje.");
+					// Wysyłaj informacje o błędzie do klienta
+					io.to(room.name).emit("gameStarted", {
+						success: false,
+						error: "Pokój nie istnieje.",
+					});
+				}
+			} catch (error) {
+				console.error("Błąd podczas pobierania informacji o pokoju:", error);
+				// Wysyłaj informacje o błędzie do klienta
+				socket.emit("gameStarted", {
+					success: false,
+					error: "Internal Server Error",
+				});
+			}
+		}
+	});
+	socket.on("cardFlipped", data => {
+		io.to(data.roomName).emit("cardFlipped", { cardId: data.cardId });
+	});
+	socket.on("nextTurn", data => {
+		io.to(data.roomName).emit("cardFlipped", { move: data.move });
+	});
+	socket.on("stopGame", data => {
+		io.to(data.roomName).emit("gameStopped");
 	});
 });
 
