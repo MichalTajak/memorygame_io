@@ -291,6 +291,9 @@ io.on("connection", async socket => {
 	socket.on("stopGame", data => {
 		io.to(data.roomName).emit("gameStopped");
 	});
+	socket.on("endGame", data => {
+		io.to(data.roomName).emit("endGame");
+	});
 });
 
 //PODPIECIA I WLACZANIE SERVERA

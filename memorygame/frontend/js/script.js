@@ -10,6 +10,7 @@ const gameContainer = document.querySelector(".game-container");
 const result = document.getElementById("result");
 const controls = document.querySelector(".controls-container");
 let cards;
+let move = 0;
 let interval;
 let firstCard = false;
 let secondCard = false;
@@ -142,11 +143,13 @@ stopButton.addEventListener(
 const initializer = () => {
 	result.innerText = "";
 	winCount = 0;
-	let cardValues = generateRandom();
+	let cardValues;
+	cardValues = generateRandom();
 	console.log(cardValues);
 	cardValues = [...cardValues, ...cardValues];
 	//simple shuffle
 	cardValues.sort(() => Math.random() - 0.5);
+	console.log(cardValues);
 	return cardValues;
 };
 
@@ -205,9 +208,7 @@ socket.on("cardFlipped", data => {
 				winCount += 1;
 				//check if winCount ==half of cardValues
 				if (winCount == Math.floor(cardValues.length / 2)) {
-					result.innerHTML = `<h2>You Won</h2>
-        <h4>Moves: ${movesCount}</h4>`;
-					stopGame();
+					socket.emit("endGame", { roomName: room });
 				}
 			} else {
 				//if the cards dont match
@@ -218,7 +219,7 @@ socket.on("cardFlipped", data => {
 				let delay = setTimeout(() => {
 					tempFirst.classList.remove("flipped");
 					tempSecond.classList.remove("flipped");
-				}, 900);
+				}, 500);
 			}
 		}
 	}
@@ -235,4 +236,10 @@ socket.on("gameStopped", () => {
 	stopButton.classList.add("hide");
 	startButton.classList.remove("hide");
 	clearInterval(interval);
+});
+//End Game
+socket.on("endGame", () => {
+	result.innerHTML = `<h2>END</h2>
+        <h4>Moves: ${movesCount}</h4>`;
+	stopGame();
 });
